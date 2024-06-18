@@ -1,103 +1,96 @@
 /**
-* This file is part of R-VIO.
-*
-* Copyright (C) 2019 Zheng Huai <zhuai@udel.edu> and Guoquan Huang <ghuang@udel.edu>
-* For more information see <http://github.com/rpng/R-VIO> 
-*
-* R-VIO is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* R-VIO is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with R-VIO. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This file is part of R-VIO.
+ *
+ * Copyright (C) 2019 Zheng Huai <zhuai@udel.edu> and Guoquan Huang
+ * <ghuang@udel.edu> For more information see <http://github.com/rpng/R-VIO>
+ *
+ * R-VIO is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * R-VIO is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with R-VIO. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-#include <string>
-
-#include <Eigen/Core>
-
-#include <opencv2/core/core.hpp>
-
 #include <tf/transform_broadcaster.h>
 
-#include "Tracker.h"
-#include "Updater.h"
+#include <Eigen/Core>
+#include <string>
+
 #include "InputBuffer.h"
 #include "PreIntegrator.h"
+#include "Tracker.h"
+#include "Updater.h"
 
+namespace RVIO {
 
-namespace RVIO
-{
+class System {
+ public:
+  System(const std::string& strSettingsFile);
 
-class System
-{
-public:
+  ~System();
 
-    System(const std::string& strSettingsFile);
+  void PushImuData(ImuData* data) { mpInputBuffer->PushImuData(data); }
+  void PushImageData(ImageData* pData) { mpInputBuffer->PushImageData(pData); }
 
-    ~System();
+  void initialize(const Eigen::Vector3d& w, const Eigen::Vector3d& a,
+                  const int nImuData, const bool bEnableAlignment);
 
-    void PushImuData(ImuData* data) {mpInputBuffer->PushImuData(data);}
-    void PushImageData(ImageData* pData) {mpInputBuffer->PushImageData(pData);}
+  void MonoVIO();
 
-    void initialize(const Eigen::Vector3d& w, const Eigen::Vector3d& a, const int nImuData, const bool bEnableAlignment);
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    void MonoVIO();
+ private:
+  double mnImuRate;
+  double mnCamTimeOffset;
 
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  int mnSlidingWindowSize;
+  int mnMinCloneStates;
 
-private:
+  bool mbEnableAlignment;
+  bool mbRecordOutputs;
 
-    double mnImuRate;
-    double mnCamTimeOffset;
+  bool mbIsMoving;
+  bool mbIsReady;
 
-    int mnSlidingWindowSize;
-    int mnMinCloneStates;
+  double mnThresholdAngle;
+  double mnThresholdDispl;
 
-    bool mbEnableAlignment;
-    bool mbRecordOutputs;
+  // Gravity
+  double mnGravity;
 
-    bool mbIsMoving;
-    bool mbIsReady;
+  // Sigma{g,wg,a,wa}
+  double msigmaGyroNoise;
+  double msigmaGyroBias;
+  double msigmaAccelNoise;
+  double msigmaAccelBias;
 
-    double mnThresholdAngle;
-    double mnThresholdDispl;
+  // State and covariance
+  Eigen::VectorXd xkk;
+  Eigen::MatrixXd Pkk;
 
-    // Gravity
-    double mnGravity;
+  // Handlers
+  Tracker* mpTracker;
+  Updater* mpUpdater;
+  InputBuffer* mpInputBuffer;
+  PreIntegrator* mpPreIntegrator;
 
-    // Sigma{g,wg,a,wa}
-    double msigmaGyroNoise;
-    double msigmaGyroBias;
-    double msigmaAccelNoise;
-    double msigmaAccelBias;
-
-    // State and covariance
-    Eigen::VectorXd xkk;
-    Eigen::MatrixXd Pkk;
-
-    // Handlers
-    Tracker* mpTracker;
-    Updater* mpUpdater;
-    InputBuffer* mpInputBuffer;
-    PreIntegrator* mpPreIntegrator;
-
-    // Interact with rviz
-    ros::NodeHandle mSystemNode;
-    ros::Publisher mPathPub;
-    ros::Publisher mOdomPub;
-    tf::TransformBroadcaster mTfPub;
+  // Interact with rviz
+  ros::NodeHandle mSystemNode;
+  ros::Publisher mPathPub;
+  ros::Publisher mOdomPub;
+  tf::TransformBroadcaster mTfPub;
 };
 
-} // namespace RVIO
+}  // namespace RVIO
 
 #endif

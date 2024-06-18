@@ -34,9 +34,9 @@ find_package(catkin REQUIRED COMPONENTS
 
 # Describe catkin project
 catkin_package(CATKIN_DEPENDS
-    roscpp roslib tf std_msgs sensor_msgs geometry_msgs nav_msgs cv_bridge eigen_conversions
-    INCLUDE_DIRS src
-    LIBRARIES ${PROJECT_NAME}
+  roscpp roslib tf std_msgs sensor_msgs geometry_msgs nav_msgs cv_bridge eigen_conversions
+  INCLUDE_DIRS src
+  LIBRARIES ${PROJECT_NAME}
 )
 
 # Include libraries
@@ -65,7 +65,6 @@ add_library(${PROJECT_NAME} SHARED
 
 target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
-  ${EIGEN3_LIBS}
 )
 
 ##################################################
