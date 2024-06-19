@@ -47,9 +47,8 @@ void InputBuffer::PushImageData(ImageData* pData) {
     });
 }
 
-bool InputBuffer::GetMeasurements(
-    double nTimeOffset,
-    std::pair<ImageData*, std::list<ImuData*> >& pMeasurements) {
+bool InputBuffer::GetMeasurements(double nTimeOffset,
+    std::pair<ImageData*, std::list<ImuData*>>& pMeasurements) {
   if (mlImuFIFO.empty() || mlImageFIFO.empty()) return false;
 
   // Make sure we have enough IMU measurements for an image to process!
@@ -59,11 +58,13 @@ bool InputBuffer::GetMeasurements(
 
   std::unique_lock<std::mutex> lock(mMutex);
 
+  // 取出最老的图像数据
   ImageData* image = mlImageFIFO.front();
   mlImageFIFO.pop_front();
 
   std::list<ImuData*> imus;
 
+  // 取出所有时间戳小于等于图像时间戳的IMU数据
   while (!mlImuFIFO.empty() &&
          mlImuFIFO.front()->Timestamp <= image->Timestamp + nTimeOffset) {
     imus.push_back(mlImuFIFO.front());

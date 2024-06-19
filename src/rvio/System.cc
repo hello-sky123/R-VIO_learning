@@ -111,13 +111,13 @@ System::~System() {
 
 void System::initialize(const Eigen::Vector3d& w, const Eigen::Vector3d& a,
                         const int nImuData, const bool bEnableAlignment) {
-  Eigen::Vector3d g = a;
+  Eigen::Vector3d g = a; // 加速度几乎等于重力加速度
   g.normalize();
 
   Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
   if (bEnableAlignment) {
     // i. Align z-axis with gravity
-    Eigen::Vector3d zv = g;
+    Eigen::Vector3d zv = g; // z轴直接取为重力加速度方向
 
     // ii. Make x-axis perpendicular to z-axis
     Eigen::Vector3d ex = Eigen::Vector3d(1, 0, 0);
@@ -134,10 +134,13 @@ void System::initialize(const Eigen::Vector3d& w, const Eigen::Vector3d& a,
     R = tempR;
   }
 
+  // 系统状态包含两部分: {G}全局状态，维护起始坐标系的运动信息，
+  // {I}IMU状态，维护从local坐标系到当前IMU坐标系的运动信息，用四元数表达旋转
   xkk.setZero(26, 1);
   xkk.block(0, 0, 4, 1) = RotToQuat(R);
   xkk.block(7, 0, 3, 1) = g;
 
+  // 偏置初始化为静止状态下的平均的角速度和线性加速度
   if (nImuData > 1) {
     xkk.block(20, 0, 3, 1) = w;                  // bg
     xkk.block(23, 0, 3, 1) = a - mnGravity * g;  // ba
@@ -145,6 +148,7 @@ void System::initialize(const Eigen::Vector3d& w, const Eigen::Vector3d& a,
 
   double dt = 1. / mnImuRate;
 
+  // 设置状态协方差矩阵，旋转用最小表达
   Pkk.setZero(24, 24);
   Pkk(0, 0) = pow(1e-3, 2);  // qG
   Pkk(1, 1) = pow(1e-3, 2);
@@ -167,13 +171,14 @@ void System::MonoVIO() {
   static int nCloneStates = 0;
   static int nImageCountAfterInit = 0;
 
-  std::pair<ImageData*, std::list<ImuData*> > pMeasurements;
+  std::pair<ImageData*, std::list<ImuData*>> pMeasurements;
+  // 获取一帧图像和对应的IMU数据
   if (!mpInputBuffer->GetMeasurements(mnCamTimeOffset, pMeasurements)) return;
 
   /* Initialization */
   if (!mbIsReady) {
-    static Eigen::Vector3d wm = Eigen::Vector3d::Zero();
-    static Eigen::Vector3d am = Eigen::Vector3d::Zero();
+    static Eigen::Vector3d wm = Eigen::Vector3d::Zero(); // 角速度测量值
+    static Eigen::Vector3d am = Eigen::Vector3d::Zero(); // 线性加速度测量值
     static int nImuDataCount = 0;
 
     if (!mbIsMoving) {
@@ -184,14 +189,15 @@ void System::MonoVIO() {
       vel.setZero();
       displ.setZero();
 
+      // 计算两帧图像之间的角度、速度和位移，判断是否在运动
       for (std::list<ImuData*>::const_iterator lit =
-               pMeasurements.second.begin();
-           lit != pMeasurements.second.end(); ++lit) {
+           pMeasurements.second.begin(); lit != pMeasurements.second.end(); ++lit) {
+
         Eigen::Vector3d w = (*lit)->AngularVel;
         Eigen::Vector3d a = (*lit)->LinearAccel;
         double dt = (*lit)->TimeInterval;
 
-        a -= mnGravity * a / a.norm();
+        a -= mnGravity * a / a.norm(); // Remove gravity
 
         ang += dt * w;
         vel += dt * a;
@@ -203,7 +209,9 @@ void System::MonoVIO() {
         mbIsMoving = true;
     }
 
+    // 静止初始化，其条件是前面是静止的，当前帧之前的运动足够才进行初始化
     while (!pMeasurements.second.empty()) {
+      // 如果静止，计算平均的角速度和线性加速度
       if (!mbIsMoving) {
         wm += (pMeasurements.second.front())->AngularVel;
         am += (pMeasurements.second.front())->LinearAccel;

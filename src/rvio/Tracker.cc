@@ -28,11 +28,12 @@
 
 namespace RVIO {
 
-cv::Scalar red = CV_RGB(255, 64, 64);
-cv::Scalar green = CV_RGB(64, 255, 64);
-cv::Scalar blue = CV_RGB(64, 64, 255);
+auto red = CV_RGB(255, 64, 64);
+auto green = CV_RGB(64, 255, 64);
+auto blue = CV_RGB(64, 64, 255);
 
 Tracker::Tracker(const cv::FileStorage& fsSettings) {
+  // 读取图像的配置参数
   const float fx = fsSettings["Camera.fx"];
   const float fy = fsSettings["Camera.fy"];
   const float cx = fsSettings["Camera.cx"];
@@ -57,7 +58,7 @@ Tracker::Tracker(const cv::FileStorage& fsSettings) {
   }
   DistCoef.copyTo(mDistCoef);
 
-  const int bIsRGB = fsSettings["Camera.RGB"];
+  const int bIsRGB = fsSettings["Camera.RGB"]; // 0: BGR, 1: RGB
   mbIsRGB = bIsRGB;
 
   const int bIsFisheye = fsSettings["Camera.Fisheye"];
@@ -66,11 +67,13 @@ Tracker::Tracker(const cv::FileStorage& fsSettings) {
   const int bEnableEqualizer = fsSettings["Tracker.EnableEqualizer"];
   mbEnableEqualizer = bEnableEqualizer;
 
+  // Number of features per image
   mnMaxFeatsPerImage = fsSettings["Tracker.nFeatures"];
   mnMaxFeatsForUpdate = std::ceil(.5 * mnMaxFeatsPerImage);
 
   mvlTrackingHistory.resize(mnMaxFeatsPerImage);
 
+  // 特征点最大和最小跟踪长度
   mnMaxTrackingLength = fsSettings["Tracker.nMaxTrackingLength"];
   mnMinTrackingLength = fsSettings["Tracker.nMinTrackingLength"];
 
@@ -90,6 +93,7 @@ Tracker::~Tracker() {
   delete mpRansac;
 }
 
+// 调用opencv的函数去除特征点的畸变
 template <typename T1, typename T2>
 void Tracker::UndistortAndNormalize(const int N, T1& src, T2& dst) {
   cv::Mat mat(N, 2, CV_32F);
@@ -169,6 +173,7 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
       cvtColor(im, im, CV_BGRA2GRAY);
   }
 
+  // 根据是否开启直方图均衡化来对图像进行处理
   if (mbEnableEqualizer) {
     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(5, 5));
     clahe->apply(im, im);
@@ -184,22 +189,26 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
       return;
     }
 
-    std::vector<cv::Point2f> vFeatsUndistNorm;
+    std::vector<cv::Point2f> vFeatsUndistNorm; // 去畸变并归一化后的特征点
     UndistortAndNormalize(mnFeatsToTrack, mvFeatsToTrack, vFeatsUndistNorm);
 
+    // mnFeatsToTrack是上一帧图像中的特征点数，不管有没有追踪成功，下一帧图像中的特征点数都是mnFeatsToTrack个
+    // 需要使用内点信息和ransac的信息去除追踪失败的特征点
     mPoints1ForRansac.setZero(3, mnFeatsToTrack);
     for (int i = 0; i < mnFeatsToTrack; ++i) {
       cv::Point2f ptUN = vFeatsUndistNorm.at(i);
+      // 将特征点加入到跟踪历史中，vector的索引值表示不同的landmark，然后每一个list中存储了这个landmark的历史观测值
       mvlTrackingHistory.at(i).push_back(ptUN);
 
       Eigen::Vector3d ptUNe = Eigen::Vector3d(ptUN.x, ptUN.y, 1);
+      // 将特征点的归一化坐标加入到mPoints1ForRansac中
       mPoints1ForRansac.block(0, i, 3, 1) = ptUNe;
 
-      mvInlierIndices.push_back(i);
+      mvInlierIndices.push_back(i); // 内点的索引，先认为都是内点
     }
 
     for (int i = mnFeatsToTrack; i < mnMaxFeatsPerImage; ++i)
-      mlFreeIndices.push_back(i);
+      mlFreeIndices.push_back(i); // 可用的特征点索引
 
     mbIsTheFirstImage = false;
   } else {
@@ -220,7 +229,8 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
       return;
     }
 
-    std::vector<cv::Point2f> vFeatsUndistNorm;
+    std::vector<cv::Point2f> vFeatsUndistNorm; // 追踪到的特征点去畸变并归一化后的特征点
+    // 如果无法在第二帧中跟踪到某个特征点，那么对应的nextPts将不会被更新，即它将保持未定义的状态，仍然在vector中
     UndistortAndNormalize(mnFeatsToTrack, vFeatsTracked, vFeatsUndistNorm);
 
     mPoints2ForRansac.setZero(3, mnFeatsToTrack);
@@ -356,7 +366,7 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
     mPoints1ForRansac = tempPointsForRansac.block(0, 0, 3, nInlierCount);
   }
 
-  im.copyTo(mLastImage);
+  im.copyTo(mLastImage); // 保存上一帧图像
 }
 
 }  // namespace RVIO

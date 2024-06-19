@@ -59,8 +59,8 @@ class System {
   bool mbEnableAlignment;
   bool mbRecordOutputs;
 
-  bool mbIsMoving;
-  bool mbIsReady;
+  bool mbIsMoving; // 是否正在运动
+  bool mbIsReady; // 系统是否已经初始化
 
   double mnThresholdAngle;
   double mnThresholdDispl;
