@@ -37,10 +37,10 @@ FeatureDetector::FeatureDetector(const cv::FileStorage& fsSettings) {
   mnImageRows = fsSettings["Camera.height"];
 
   // Number of cell in the image
-  mnGridCols = std::floor(mnImageCols / mnBlockSizeX);
-  mnGridRows = std::floor(mnImageRows / mnBlockSizeY);
+  mnGridCols = std::floor(mnImageCols / mnBlockSizeX); // 列方向上的网格数
+  mnGridRows = std::floor(mnImageRows / mnBlockSizeY); // 行方向上的网格数
 
-  mnBlocks = mnGridCols * mnGridRows;
+  mnBlocks = mnGridCols * mnGridRows; // 网格总数
 
   mnOffsetX = .5 * (mnImageCols - mnGridCols * mnBlockSizeX);
   mnOffsetY = .5 * (mnImageRows - mnGridRows * mnBlockSizeY);
@@ -51,6 +51,7 @@ FeatureDetector::FeatureDetector(const cv::FileStorage& fsSettings) {
   mvvGrid.resize(mnBlocks);
 }
 
+// 检测角点并进行亚像素优化
 int FeatureDetector::DetectWithSubPix(const cv::Mat& im, const int nCorners,
                                       const int s,
                                       std::vector<cv::Point2f>& vCorners) {
@@ -81,31 +82,33 @@ void FeatureDetector::ChessGrid(const std::vector<cv::Point2f>& vCorners) {
   mvvGrid.clear();
   mvvGrid.resize(mnBlocks);
 
-  for (const cv::Point2f& pt : vCorners) {
+  for (const cv::Point2f& pt: vCorners) {
+    // 判断角点是否在图像边界内
     if (pt.x <= mnOffsetX || pt.y <= mnOffsetY ||
         pt.x >= (mnImageCols - mnOffsetX) || pt.y >= (mnImageRows - mnOffsetY))
       continue;
 
-    int col = std::floor((pt.x - mnOffsetX) / mnBlockSizeX);
-    int row = std::floor((pt.y - mnOffsetY) / mnBlockSizeY);
+    int col = std::floor((pt.x - mnOffsetX) / mnBlockSizeX); // 网格的列索引
+    int row = std::floor((pt.y - mnOffsetY) / mnBlockSizeY); // 网格的行索引
 
     int nBlockIdx = row * mnGridCols + col;
-    mvvGrid.at(nBlockIdx).emplace_back(pt);
+    mvvGrid.at(nBlockIdx).emplace_back(pt); // 将角点加入到对应的网格中
   }
 }
 
 int FeatureDetector::FindNewer(const std::vector<cv::Point2f>& vCorners,
                                const std::vector<cv::Point2f>& vRefCorners,
                                std::deque<cv::Point2f>& qNewCorners) {
-  ChessGrid(vRefCorners);
+  ChessGrid(vRefCorners); // 将参考帧的角点分布到网格中
 
-  for (const cv::Point2f& pt : vCorners) {
+  for (const cv::Point2f& pt: vCorners) {
+    // 如果新提的角点在图像边界外，则跳过
     if (pt.x <= mnOffsetX || pt.y <= mnOffsetY ||
         pt.x >= (mnImageCols - mnOffsetX) || pt.y >= (mnImageRows - mnOffsetY))
       continue;
 
-    int col = std::floor((pt.x - mnOffsetX) / mnBlockSizeX);
-    int row = std::floor((pt.y - mnOffsetY) / mnBlockSizeY);
+    int col = std::floor((pt.x - mnOffsetX) / mnBlockSizeX); // 网格的列索引
+    int row = std::floor((pt.y - mnOffsetY) / mnBlockSizeY); // 网格的行索引
 
     float xl = col * mnBlockSizeX + mnOffsetX;
     float xr = xl + mnBlockSizeX;

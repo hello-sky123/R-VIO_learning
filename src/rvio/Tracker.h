@@ -69,8 +69,8 @@ class Tracker {
   std::vector<std::list<cv::Point2f> > mvlFeatMeasForUpdate;
 
  private:
-  int mnMaxFeatsPerImage;
-  int mnMaxFeatsForUpdate;
+  int mnMaxFeatsPerImage; // 最大特征点数
+  int mnMaxFeatsForUpdate; // 最大更新特征点数
 
   int mnMaxTrackingLength;
   int mnMinTrackingLength;

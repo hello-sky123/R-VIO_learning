@@ -39,8 +39,8 @@ namespace RVIO {
  * @the indices of two correspondences are stored in @p twoPoints.
  */
 struct RansacModel {
-  Eigen::MatrixXd hypotheses;
-  Eigen::MatrixXi nInliers;
+  Eigen::MatrixXd hypotheses; // 本质矩阵检验的假设
+  Eigen::MatrixXi nInliers;  // 每个假设的内点数
   Eigen::MatrixXi twoPoints; // 2-point indices
   int nIterations;
 

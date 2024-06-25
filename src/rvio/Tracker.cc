@@ -123,16 +123,20 @@ void Tracker::UndistortAndNormalize(const int N, T1& src, T2& dst) {
   }
 }
 
+// 显示特征点匹配结果
 void Tracker::DisplayTrack(const cv::Mat& imIn,
                            std::vector<cv::Point2f>& vPoints1,
                            std::vector<cv::Point2f>& vPoints2,
                            std::vector<unsigned char>& vInlierFlag,
                            cv_bridge::CvImage& imOut) {
+  // 准备显示的图像
   imOut.header = std_msgs::Header();
   imOut.encoding = "bgr8";
 
-  cvtColor(imIn, imOut.image, CV_GRAY2BGR);
+  // 颜色空间转换，将灰度图转换为BGR图
+  cv::cvtColor(imIn, imOut.image, CV_GRAY2BGR);
 
+  // 显示特征点匹配结果，追踪成功的特征点用蓝色表示，追踪失败的特征点用红色表示
   for (int i = 0; i < (int)vPoints1.size(); ++i) {
     if (vInlierFlag.at(i) != 0) {
       cv::circle(imOut.image, vPoints1.at(i), 3, blue, -1);
@@ -208,7 +212,7 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
     }
 
     for (int i = mnFeatsToTrack; i < mnMaxFeatsPerImage; ++i)
-      mlFreeIndices.push_back(i); // 可用的特征点索引
+      mlFreeIndices.push_back(i); // 可用的特征点索引，因为限制了最大特征点数
 
     mbIsTheFirstImage = false;
   } else {
@@ -240,34 +244,38 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
       mPoints2ForRansac.block(0, i, 3, 1) = ptUNe;
     }
 
-    // RANSAC
+    // RANSAC，mPoints1ForRansac是归一化坐标，一个点是一个列向量
     mpRansac->FindInliers(mPoints1ForRansac, mPoints2ForRansac, lImuData,
                           vInlierFlag);
 
     // Show the result in rviz
     cv_bridge::CvImage imTrack;
     DisplayTrack(im, mvFeatsToTrack, vFeatsTracked, vInlierFlag, imTrack);
-    mTrackPub.publish(imTrack.toImageMsg());
+    mTrackPub.publish(imTrack.toImageMsg()); // 发布特征点匹配结果
 
     // Prepare data for update
-    mvFeatTypesForUpdate.clear();
-    mvlFeatMeasForUpdate.clear();
-    mvlFeatMeasForUpdate.resize(mnMaxFeatsForUpdate);
+    mvFeatTypesForUpdate.clear(); // 特征点的类型，1表示丢失，2表示达到最大跟踪长度
+    mvlFeatMeasForUpdate.clear(); // 每个特征点的历史测量值
+    mvlFeatMeasForUpdate.resize(mnMaxFeatsForUpdate); // 最多更新75个特征点
 
     mvFeatsToTrack.clear();
     std::vector<int> vInlierIndicesToTrack;
-    Eigen::MatrixXd tempPointsForRansac(3, mnMaxFeatsPerImage);
+    Eigen::MatrixXd tempPointsForRansac(3, mnMaxFeatsPerImage); // 每张图像的最多特征点数
 
     int nMeasCount = 0;
     int nInlierCount = 0;
 
+    // 更新每个跟踪失败特征点的跟踪状态,mnFeatsToTrack是上一帧图像中的所有特征点
     for (int i = 0; i < mnFeatsToTrack; ++i) {
+      // 如果特征点跟踪失败
       if (!vInlierFlag.at(i)) {
         // Lose track
-        int idx = mvInlierIndices.at(i);
-        mlFreeIndices.push_back(idx);
+        int idx = mvInlierIndices.at(i); // 上一帧追踪失败的特征点的索引
+        mlFreeIndices.push_back(idx); // 因为该特征点追踪失败，所以增加了一个可用的特征点索引
 
+        // 如果特征点的跟踪长度大于最小跟踪长度，最小跟踪长度是3，最大是15
         if ((int)mvlTrackingHistory.at(idx).size() >= mnMinTrackingLength) {
+          // 测量值的个数小于最大的特征点更新个数，那么就将这个特征点的测量值加入到更新列表中
           if (nMeasCount < mnMaxFeatsForUpdate) {
             mvFeatTypesForUpdate.push_back('1');
             mvlFeatMeasForUpdate.at(nMeasCount) = mvlTrackingHistory.at(idx);
@@ -275,37 +283,42 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
           }
         }
 
+        // 如果追踪失败且跟踪长度小于最小跟踪长度，那么就清空这个特征点的跟踪历史
         mvlTrackingHistory.at(idx).clear();
       }
     }
 
+    // 更新每个跟踪成功特征点的跟踪状态
     for (int i = 0; i < mnFeatsToTrack; ++i) {
       if (vInlierFlag.at(i)) {
         // Tracked
         int idx = mvInlierIndices.at(i);
-        vInlierIndicesToTrack.push_back(idx);
+        vInlierIndicesToTrack.push_back(idx); // 追踪成功的特征点的索引
 
-        cv::Point2f pt = vFeatsTracked.at(i);
-        mvFeatsToTrack.push_back(pt);
+        cv::Point2f pt = vFeatsTracked.at(i); // 有畸变的像素坐标
+        mvFeatsToTrack.push_back(pt); // 将跟踪成功的点加入进去，为下一次追踪做准备
 
-        cv::Point2f ptUN = vFeatsUndistNorm.at(i);
+        cv::Point2f ptUN = vFeatsUndistNorm.at(i); // 去畸变并归一化后的特征点
+
+        // 如果特征点的跟踪长度达到最大跟踪长度，那么就将这个特征点的测量值加入到更新列表中
         if ((int)mvlTrackingHistory.at(idx).size() == mnMaxTrackingLength) {
           // Reach the max. tracking length
           // Note: We use all measurements for triangulation, while
           //       Only use the first 1/2 measurements for update.
           if (nMeasCount < mnMaxFeatsForUpdate) {
-            mvFeatTypesForUpdate.push_back('2');
+            mvFeatTypesForUpdate.push_back('2'); // 达到最大跟踪长度
             mvlFeatMeasForUpdate.at(nMeasCount) = mvlTrackingHistory.at(idx);
 
             while (mvlTrackingHistory.at(idx).size() >
                    mnMaxTrackingLength -
                        (std::ceil(.5 * mnMaxTrackingLength) - 1))
-              mvlTrackingHistory.at(idx).pop_front();
+              mvlTrackingHistory.at(idx).pop_front(); // 如果测量值超过一定值，删除最老的测量值
 
             nMeasCount++;
-          } else
+          } else // 如果测量值的个数大于最大的特征点更新个数，那么就删除最老的测量值
             mvlTrackingHistory.at(idx).pop_front();
         }
+        // 如果没有达到最大跟踪长度，那么就将这个特征点的测量值加入到特征点的跟踪历史中
         mvlTrackingHistory.at(idx).push_back(ptUN);
 
         Eigen::Vector3d ptUNe = Eigen::Vector3d(ptUN.x, ptUN.y, 1);
@@ -315,11 +328,13 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
       }
     }
 
+    // 还可以增加新的特征点
     if (!mlFreeIndices.empty()) {
       // Feature refill
       std::vector<cv::Point2f> vTempFeats;
       std::deque<cv::Point2f> qNewFeats;
 
+      // 检测新的特征点
       mpFeatureDetector->DetectWithSubPix(im, mnMaxFeatsPerImage, 2,
                                           vTempFeats);
       int nNewFeats =
