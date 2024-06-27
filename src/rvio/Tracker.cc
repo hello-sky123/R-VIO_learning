@@ -156,11 +156,11 @@ void Tracker::DisplayNewer(const cv::Mat& imIn,
 
   cvtColor(imIn, imOut.image, CV_GRAY2BGR);
 
-  for (int i = 0; i < (int)vFeats.size(); ++i)
-    cv::circle(imOut.image, vFeats.at(i), 3, blue, 0);
+  for (const auto & vFeat: vFeats)
+    cv::circle(imOut.image, vFeat, 3, blue, 0);
 
-  for (int i = 0; i < (int)qNewFeats.size(); ++i)
-    cv::circle(imOut.image, qNewFeats.at(i), 3, green, -1);
+  for (const auto & qNewFeat: qNewFeats)
+    cv::circle(imOut.image, qNewFeat, 3, green, -1);
 }
 
 void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
@@ -345,11 +345,13 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
       DisplayNewer(im, vTempFeats, qNewFeats, imNewer);
       mNewerPub.publish(imNewer.toImageMsg());
 
+      // 有新的特征点加入
       if (nNewFeats != 0) {
-        std::deque<cv::Point2f> qNewFeatsUndistNorm;
+        std::deque<cv::Point2f> qNewFeatsUndistNorm; // 新特征点去畸变并归一化后的特征点
         UndistortAndNormalize(nNewFeats, qNewFeats, qNewFeatsUndistNorm);
 
         for (;;) {
+          // 可用索引中最小的索引，然后将索引和归一化的特征点加入到对应变量中
           int idx = mlFreeIndices.front();
           vInlierIndicesToTrack.push_back(idx);
 
@@ -359,7 +361,7 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
           cv::Point2f ptUN = qNewFeatsUndistNorm.front();
           mvlTrackingHistory.at(idx).push_back(ptUN);
 
-          Eigen::Vector3d ptUNe = Eigen::Vector3d(ptUN.x, ptUN.y, 1);
+          auto ptUNe = Eigen::Vector3d(ptUN.x, ptUN.y, 1);
           tempPointsForRansac.block(0, nInlierCount, 3, 1) = ptUNe;
 
           nInlierCount++;
@@ -368,6 +370,7 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
           qNewFeats.pop_front();
           qNewFeatsUndistNorm.pop_front();
 
+          // 如果可用索引为空，或者新的特征点为空，或者新的特征点去畸变并归一化后的特征点为空，或者内点数达到最大特征点数
           if (mlFreeIndices.empty() || qNewFeats.empty() ||
               qNewFeatsUndistNorm.empty() || nInlierCount == mnMaxFeatsPerImage)
             break;
@@ -376,8 +379,9 @@ void Tracker::track(const cv::Mat& im, std::list<ImuData*>& lImuData) {
     }
 
     // Update tracker
-    mnFeatsToTrack = nInlierCount;
-    mvInlierIndices = vInlierIndicesToTrack;
+    mnFeatsToTrack = nInlierCount; // 下一帧要追踪的特征点数
+    mvInlierIndices = vInlierIndicesToTrack; // 下一帧要追踪的特征点的索引
+    // 下一帧要追踪的特征点的归一化坐标，一个点是一个列向量，用于本质矩阵RANSAC剔除外点
     mPoints1ForRansac = tempPointsForRansac.block(0, 0, 3, nInlierCount);
   }
 

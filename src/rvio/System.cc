@@ -243,15 +243,15 @@ void System::MonoVIO() {
 
   t1 = ros::WallTime::now();
 
-  /* Visual tracking */
+  /* Visual tracking 得到当前帧的特征点追踪历史*/
   mpTracker->track(pMeasurements.first->Image, pMeasurements.second);
 
   t2 = ros::WallTime::now();
 
-  /* Propagation */
+  /* Propagation 利用IMU数据，得到预测的当前帧的位姿*/
   mpPreIntegrator->propagate(xkk, Pkk, pMeasurements.second);
 
-  /* Update */
+  /* Update 滑窗内至少有3帧才做更新*/
   if (nCloneStates > mnMinCloneStates) {
     mpUpdater->update(mpPreIntegrator->xk1k, mpPreIntegrator->Pk1k,
                       mpTracker->mvFeatTypesForUpdate,
@@ -269,8 +269,8 @@ void System::MonoVIO() {
     if (nCloneStates < mnSlidingWindowSize) {
       // xkk
       Eigen::MatrixXd tempx(26 + 7 * (nCloneStates + 1), 1);
-      tempx << xkk, xkk.block(10, 0, 7, 1);
-      xkk = tempx;
+      tempx << xkk, xkk.block(10, 0, 7, 1); // 将上一帧到当前帧的relative pose加入状态，
+      xkk = tempx;                                                         // IMU frame之间的相对位姿
 
       // Pkk
       Eigen::MatrixXd J(24 + 6 * (nCloneStates + 1), 24 + 6 * nCloneStates);
@@ -314,7 +314,8 @@ void System::MonoVIO() {
     }
   }
 
-  /* Composition */
+  /* Composition: shift local frame of reference at every image time*/
+  /* the corresponding IMU frame {I_{k+1}} is selected as the frame of reference*/
   Eigen::Vector4d qG = xkk.block(0, 0, 4, 1);
   Eigen::Vector3d pG = xkk.block(4, 0, 3, 1);
   Eigen::Vector3d gk = xkk.block(7, 0, 3, 1);

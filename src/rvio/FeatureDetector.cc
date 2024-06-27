@@ -26,7 +26,7 @@ namespace RVIO {
 
 FeatureDetector::FeatureDetector(const cv::FileStorage& fsSettings) {
   // Min. distance between features
-  mnMinDistance = fsSettings["Tracker.nMinDist"];
+  mnMinDistance = fsSettings["Tracker.nMinDist"]; // 特征点之间的最小距离
   mnQualityLevel = fsSettings["Tracker.nQualLvl"]; // Quality level of features
 
   // Block size of image chess grid
@@ -115,28 +115,32 @@ int FeatureDetector::FindNewer(const std::vector<cv::Point2f>& vCorners,
     float yt = row * mnBlockSizeY + mnOffsetY;
     float yb = yt + mnBlockSizeY;
 
+    // 如果新提的特征点离网格边界太近，则跳过
     if (fabs(pt.x - xl) < mnMinDistance || fabs(pt.x - xr) < mnMinDistance ||
         fabs(pt.y - yt) < mnMinDistance || fabs(pt.y - yb) < mnMinDistance)
       continue;
 
     int nBlockIdx = row * mnGridCols + col;
-
+    // 如果网格中的特征点数小于最大特征点数的0.75倍，则将新提的特征点加入到网格中
     if ((float)mvvGrid.at(nBlockIdx).size() < .75 * mnMaxFeatsPerBlock) {
+      // 如果原先网格非空，则判断新提的特征点是否与网格中的特征点距离大于1倍的最小距离
       if (!mvvGrid.at(nBlockIdx).empty()) {
         int cnt = 0;
 
-        for (const cv::Point2f& bpt : mvvGrid.at(nBlockIdx)) {
+        for (const cv::Point2f& bpt: mvvGrid.at(nBlockIdx)) {
           if (cv::norm(pt - bpt) > 1 * mnMinDistance)
             cnt++;
           else
             break;
         }
 
+        // 如果新提的特征点与网格中所有的特征点距离大于1倍的最小距离，则将新提的特征点加入到网格中
         if (cnt == (int)mvvGrid.at(nBlockIdx).size()) {
           qNewCorners.push_back(pt);
           mvvGrid.at(nBlockIdx).push_back(pt);
         }
-      } else {
+      } // 如果原先网格为空，则直接加入
+      else {
         qNewCorners.push_back(pt);
         mvvGrid.at(nBlockIdx).push_back(pt);
       }
