@@ -248,10 +248,10 @@ void System::MonoVIO() {
 
   t2 = ros::WallTime::now();
 
-  /* Propagation 利用IMU数据，得到预测的当前帧的位姿*/
+  /* Propagation 利用IMU数据，得到预测的当前帧的位姿，JPL的R10*/
   mpPreIntegrator->propagate(xkk, Pkk, pMeasurements.second);
 
-  /* Update 滑窗内至少有3帧才做更新*/
+  /* Update 滑窗内至少有3帧相对位姿才做更新*/
   if (nCloneStates > mnMinCloneStates) {
     mpUpdater->update(mpPreIntegrator->xk1k, mpPreIntegrator->Pk1k,
                       mpTracker->mvFeatTypesForUpdate,
@@ -269,7 +269,7 @@ void System::MonoVIO() {
     if (nCloneStates < mnSlidingWindowSize) {
       // xkk
       Eigen::MatrixXd tempx(26 + 7 * (nCloneStates + 1), 1);
-      tempx << xkk, xkk.block(10, 0, 7, 1); // 将上一帧到当前帧的relative pose加入状态，
+      tempx << xkk, xkk.block(10, 0, 7, 1); // 将T21、T32等relative pose加入状态，
       xkk = tempx;                                                         // IMU frame之间的相对位姿
 
       // Pkk
@@ -285,7 +285,7 @@ void System::MonoVIO() {
 
       nCloneStates++;
     } else {
-      // xkk
+      // xkk，滑窗满了以后，将最早的relative pose去掉
       Eigen::MatrixXd tempx(26 + 7 * mnSlidingWindowSize, 1);
       tempx << xkk.block(0, 0, 26, 1),
           xkk.block(26 + 7, 0, 7 * (mnSlidingWindowSize - 1), 1),
@@ -329,7 +329,7 @@ void System::MonoVIO() {
   gk = Rk * gk;
   gk.normalize();
 
-  Eigen::Vector4d qkG = QuatMul(qk, qG);
+  Eigen::Vector4d qkG = QuatMul(qk, qG); // 得到当前帧下的的全局姿态
   Eigen::Vector3d pkG = Rk * (pG - pk);
   Eigen::Vector3d pGk = RG.transpose() * (pk - pG);
 
@@ -355,7 +355,8 @@ void System::MonoVIO() {
   // xk
   xkk.block(0, 0, 4, 1) = qkG;
   xkk.block(4, 0, 3, 1) = pkG;
-  xkk.block(7, 0, 3, 1) = gk;
+  xkk.block(7, 0, 3, 1) = gk; // 当前帧下的重力方向
+  // 由于是以当前时刻的IMU frame为参考系，所以这一时刻的IMU的姿态是identity的
   xkk.block(10, 0, 4, 1) = Eigen::Vector4d(0, 0, 0, 1);
   xkk.block(14, 0, 3, 1) = Eigen::Vector3d(0, 0, 0);
 
