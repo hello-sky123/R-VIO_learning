@@ -71,6 +71,7 @@ void Updater::update(
     Eigen::VectorXd& xk1k, Eigen::MatrixXd& Pk1k,
     std::vector<unsigned char>& vFeatTypesForUpdate,
     std::vector<std::list<cv::Point2f>>& vlFeatMeasForUpdate) {
+
   // Interact with ROS rviz
   visualization_msgs::Marker cloud;
   cloud.header.frame_id = "imu";
@@ -89,7 +90,7 @@ void Updater::update(
   // Number of (max) rows of matrices，每个特征点有两个观测值
   int nRows = 0;
   for (int i = 0; i < nFeat; ++i)
-    nRows += 2 * (int)vlFeatMeasForUpdate.at(i).size();
+    nRows += 2 * (int)vlFeatMeasForUpdate.at(i).size(); // 每个特征点会被观测多次
 
   // Number of clone states
   int nCloneStates = (xk1k.rows() - 26) / 7;
@@ -106,23 +107,24 @@ void Updater::update(
   // 更新只针对两类型的特征点，（追踪完成的：1、losing track，2、达到最大追踪次数的）
   for (int featIdx = 0; featIdx < nFeat; ++featIdx) {
     uchar featType = vFeatTypesForUpdate.at(featIdx);
-    std::list<cv::Point2f> lFeatMeas = vlFeatMeasForUpdate.at(featIdx);
+    std::list<cv::Point2f> lFeatMeas = vlFeatMeasForUpdate.at(featIdx); // 特征点的观测值历史
 
-    int nTrackLength = (int)lFeatMeas.size();
-    int nTrackPhases = nTrackLength - 1;
+    int nTrackLength = (int)lFeatMeas.size(); // 特征点的观测次数
+    int nTrackPhases = nTrackLength - 1; // 特征点的追踪次数
     int nRelPosesDim = 7 * nTrackPhases;
 
     Eigen::VectorXd mRelPoses;
     // 1: losing track; 2: reaching max tracking length
-    if (featType == '1')
+    if (featType == '1') // 追踪失败的特征点，其观测也出现在了观测历史中
       mRelPoses = xk1k.tail(nRelPosesDim);
-    else
+    else // 如果达到最大追踪次数，那么取所有的相对位姿
       mRelPoses = xk1k.block(26, 0, nRelPosesDim, 1);
 
     // [qIi1,tIi1]
     Eigen::VectorXd mRelPosesToFirst(nRelPosesDim, 1);
     mRelPosesToFirst.block(0, 0, 7, 1) << mRelPoses.block(0, 0, 4, 1),
         -QuatToRot(mRelPoses.block(0, 0, 4, 1)) * mRelPoses.block(4, 0, 3, 1);
+    // 如果相对位姿是[q43,t34,q54,t45....]，那么这里的mRelPosesToFirst是[q43,t43,q53,t53....]
     for (int i = 1; i < nTrackPhases; ++i) {
       Eigen::Vector4d qI =
           QuatMul(mRelPoses.block(7 * i, 0, 4, 1),
@@ -133,11 +135,12 @@ void Updater::update(
       mRelPosesToFirst.block(7 * i, 0, 7, 1) << qI, tI;
     }
 
-    // [qCi1,tCi1]
+    // [qCi1,tCi1]变换到相机之间的相对位姿
     Eigen::VectorXd mCamRelPosesToFirst(nRelPosesDim, 1);
     for (int i = 0; i < nTrackPhases; ++i) {
       Eigen::Vector4d qC = RotToQuat(
           mRci * QuatToRot(mRelPosesToFirst.block(7 * i, 0, 4, 1)) * mRic);
+      // t_{c3}{c2} = t_{c3}{I3} + t_{I3}{I2} + t_{I2}{c2}，这是向量之间的关系，需要在特定的坐标系下表达，得到数值
       Eigen::Vector3d tC =
           mRci * QuatToRot(mRelPosesToFirst.block(7 * i, 0, 4, 1)) * mtic +
           mRci * mRelPosesToFirst.block(7 * i + 4, 0, 3, 1) + mtci;
@@ -172,7 +175,7 @@ void Updater::update(
     Jang << -sin(phi) * sin(psi), cos(phi) * cos(psi), cos(phi), 0,
         -sin(phi) * cos(psi), -cos(phi) * sin(psi);
 
-    Eigen::Matrix2d Rinv;
+    Eigen::Matrix2d Rinv; // 图像测量协方差矩阵
     Rinv << 1. / pow(mnImageNoiseSigma, 2), 0, 0,
         1. / pow(mnImageNoiseSigma, 2);
 
@@ -185,10 +188,10 @@ void Updater::update(
       Eigen::Vector3d HTRinve = Eigen::Vector3d::Zero();
       double cost = 0;
 
-      // The 1st measurement
+      // The 1st measurement (bearing-only)
       Eigen::Vector3d h1 = epfinv;
 
-      Eigen::Matrix<double, 2, 3> Hproj1;
+      Eigen::Matrix<double, 2, 3> Hproj1; // 由epfinv得到归一化坐标的投影矩阵
       Hproj1 << 1 / h1(2), 0, -h1(0) / pow(h1(2), 2), 0, 1 / h1(2),
           -h1(1) / pow(h1(2), 2);
 
@@ -203,8 +206,9 @@ void Updater::update(
       e1 << (ptFirst - pt1).x, (ptFirst - pt1).y;
 
       cost += e1.transpose() * Rinv * e1;
-      HTRinvH.noalias() += H1.transpose() * Rinv * H1;
-      HTRinve.noalias() += H1.transpose() * Rinv * e1;
+      // 矩阵相乘，Eigen默认会解决混淆问题，如果确定不会出现混淆，可以使用noalias()来提效
+      HTRinvH.noalias() += H1.transpose() * Rinv * H1; // 增量方程的H
+      HTRinve.noalias() += H1.transpose() * Rinv * e1; // 增量方程的g
 
       // The following measurements
       std::list<cv::Point2f>::const_iterator lit = lFeatMeas.begin();
@@ -212,6 +216,7 @@ void Updater::update(
         Eigen::Matrix3d Rc =
             QuatToRot(mCamRelPosesToFirst.block(7 * i, 0, 4, 1));
         Eigen::Vector3d tc = mCamRelPosesToFirst.block(7 * i + 4, 0, 3, 1);
+        // epfinv是在第一个观测到它的相机坐标系下表达的，所以这里需要将其转换到当前的相机坐标系下
         Eigen::Vector3d h = Rc * epfinv + rho * tc;
 
         Eigen::Matrix<double, 2, 3> Hproj;
@@ -236,6 +241,7 @@ void Updater::update(
       if (cost <= lastCost) {
         // Down
         HTRinvH.diagonal() += lambda * HTRinvH.diagonal();
+        // 使用列主元Householder QR分解求解增量方程
         Eigen::Vector3d dpfinv = HTRinvH.colPivHouseholderQr().solve(HTRinve);
 
         phi += dpfinv(0);
@@ -339,7 +345,7 @@ void Updater::update(
       Eigen::Vector3d t0 = mRelPosesToFirst.block(4, 0, 3, 1);
 
       Eigen::Matrix3d dpx0 =
-          SkewSymm(mRic * epfinv + rho * mtic + rho * R0T * t0);
+          SkewSymm(mRic * epfinv + rho * mtic + rho * R0T * t0); // tr_rvio_ijrr公式(127)
       Eigen::Matrix<double, 3, 6> subH;
       subH << dpx0 * R0T, -rho * Eigen::Matrix3d::Identity();
 
@@ -449,7 +455,6 @@ void Updater::update(
       }
     } else {
       ROS_DEBUG("Failed in Mahalanobis distance test!");
-      continue;
     }
   }
 
