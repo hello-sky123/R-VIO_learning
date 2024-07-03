@@ -32,7 +32,7 @@ namespace RVIO {
 
 class Updater {
  public:
-  Updater(const cv::FileStorage& fsSettings);
+  explicit Updater(const cv::FileStorage& fsSettings);
 
   void update(Eigen::VectorXd& xk1k, Eigen::MatrixXd& Pk1k,
               std::vector<unsigned char>& vFeatTypesForUpdate,

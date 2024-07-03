@@ -54,7 +54,7 @@ FeatureDetector::FeatureDetector(const cv::FileStorage& fsSettings) {
 // 检测角点并进行亚像素优化
 int FeatureDetector::DetectWithSubPix(const cv::Mat& im, const int nCorners,
                                       const int s,
-                                      std::vector<cv::Point2f>& vCorners) {
+                                      std::vector<cv::Point2f>& vCorners) const {
   vCorners.clear();
   vCorners.reserve(nCorners);
   // 检测Harris角点或者是Shi-Tomasi角点，minDistance：对于初选出的角点而言，如果在其周围

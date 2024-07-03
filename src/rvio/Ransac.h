@@ -56,14 +56,14 @@ struct RansacModel {
 
 class Ransac {
  public:
-  Ransac(const cv::FileStorage& fsSettings);
+  explicit Ransac(const cv::FileStorage& fsSettings);
 
   /**
    * @create a set of random 2-point indices for RANSAC.
    * @the number of inliers is @p nInlierCandidates.
    * @the number of iterations needed is @p nIterations.
    */
-  void SetPointPair(const int nInlierCandidates, const int nIterations);
+  void SetPointPair(int nInlierCandidates, int nIterations);
 
   /**
    * @use two (normalized) correspondences point(i)(j), where seq i=(A,B) and
@@ -75,18 +75,18 @@ class Ransac {
    */
   void SetRansacModel(const Eigen::MatrixXd& Points1,
                       const Eigen::MatrixXd& Points2, const Eigen::Matrix3d& R,
-                      const int nIterNum);
+                      int nIterNum);
 
   /**
    * @get rotation matrix @p R by integrating the IMU (gyro) measurements.
    */
-  void GetRotation(std::list<ImuData*>& lImuData, Eigen::Matrix3d& R);
+  void GetRotation(std::list<ImuData*>& lImuData, Eigen::Matrix3d& R) const;
 
   /**
    * @count the number of inliers in the @nIterNum-th trial.
    */
   void CountInliers(const Eigen::MatrixXd& Points1,
-                    const Eigen::MatrixXd& Points2, const int nIterNum);
+                    const Eigen::MatrixXd& Points2, int nIterNum);
 
   /**
    * 2-Point RANSAC
@@ -103,11 +103,11 @@ class Ransac {
   /**
    * Metric for evaluation
    */
-  double SampsonError(const Eigen::Vector3d& pt1, const Eigen::Vector3d& pt2,
-                      const Eigen::Matrix3d& E) const;
+  static double SampsonError(const Eigen::Vector3d& pt1, const Eigen::Vector3d& pt2,
+                      const Eigen::Matrix3d& E) ;
 
-  double AlgebraicError(const Eigen::Vector3d& pt1, const Eigen::Vector3d& pt2,
-                        const Eigen::Matrix3d& E) const;
+  static double AlgebraicError(const Eigen::Vector3d& pt1, const Eigen::Vector3d& pt2,
+                        const Eigen::Matrix3d& E) ;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 

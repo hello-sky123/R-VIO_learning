@@ -30,7 +30,7 @@ namespace RVIO {
 
 class PreIntegrator {
  public:
-  PreIntegrator(const cv::FileStorage& fsSettings);
+  explicit PreIntegrator(const cv::FileStorage& fsSettings);
 
   void propagate(Eigen::VectorXd& xkk, Eigen::MatrixXd& Pkk,
                  std::list<ImuData*>& lImuData);

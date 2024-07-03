@@ -108,7 +108,7 @@ void Ransac::SetRansacModel(const Eigen::MatrixXd& Points1,
   mRansacModel.hypotheses.block<3, 3>(3 * nIterNum, 0) = SkewSymm(t) * R;
 }
 
-void Ransac::GetRotation(std::list<ImuData*>& lImuData, Eigen::Matrix3d& R) {
+void Ransac::GetRotation(std::list<ImuData*>& lImuData, Eigen::Matrix3d& R) const {
   Eigen::Matrix3d tempR;
   tempR.setIdentity();
 
@@ -230,7 +230,7 @@ int Ransac::FindInliers(const Eigen::MatrixXd& Points1,
 
 double Ransac::SampsonError(const Eigen::Vector3d& pt1,
                             const Eigen::Vector3d& pt2,
-                            const Eigen::Matrix3d& E) const {
+                            const Eigen::Matrix3d& E) {
   Eigen::Vector3d Fx1 = E * pt1;
   Eigen::Vector3d Fx2 = E.transpose() * pt2;
   // 数值稳定性和准确性：与代数误差 相比，Sampson Error考虑了点和线的归一化，提供了一个更稳定且更准确的度量。
@@ -242,7 +242,7 @@ double Ransac::SampsonError(const Eigen::Vector3d& pt1,
 // 代数误差，即两个点在本质矩阵下残差的绝对值
 double Ransac::AlgebraicError(const Eigen::Vector3d& pt1,
                               const Eigen::Vector3d& pt2,
-                              const Eigen::Matrix3d& E) const {
+                              const Eigen::Matrix3d& E) {
   return fabs(pt2.transpose() * E * pt1);
 }
 

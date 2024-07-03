@@ -37,7 +37,7 @@ namespace RVIO {
 
 class Tracker {
  public:
-  Tracker(const cv::FileStorage& fsSettings);
+  explicit Tracker(const cv::FileStorage& fsSettings);
 
   ~Tracker();
 
@@ -47,16 +47,16 @@ class Tracker {
 
  private:
   template <typename T1, typename T2>
-  void UndistortAndNormalize(const int N, T1& src, T2& dst);
+  void UndistortAndNormalize(int N, T1& src, T2& dst);
 
-  void DisplayTrack(const cv::Mat& imIn, std::vector<cv::Point2f>& vPoints1,
-                    std::vector<cv::Point2f>& vPoints2,
-                    std::vector<unsigned char>& vInlierFlag,
-                    cv_bridge::CvImage& imOut);
+  static void DisplayTrack(const cv::Mat& imIn, const std::vector<cv::Point2f>& vPoints1,
+                           const std::vector<cv::Point2f>& vPoints2,
+                           const std::vector<unsigned char>& vInlierFlag,
+                           cv_bridge::CvImage& imOut);
 
-  void DisplayNewer(const cv::Mat& imIn, std::vector<cv::Point2f>& vFeats,
-                    std::deque<cv::Point2f>& qNewFeats,
-                    cv_bridge::CvImage& imOut);
+  static void DisplayNewer(const cv::Mat& imIn, std::vector<cv::Point2f>& vFeats,
+                           std::deque<cv::Point2f>& qNewFeats,
+                           cv_bridge::CvImage& imOut);
 
  public:
   // Feature types for update

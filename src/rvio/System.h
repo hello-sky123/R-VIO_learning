@@ -35,15 +35,15 @@ namespace RVIO {
 
 class System {
  public:
-  System(const std::string& strSettingsFile);
+  explicit System(const std::string& strSettingsFile);
 
   ~System();
 
-  void PushImuData(ImuData* data) { mpInputBuffer->PushImuData(data); }
-  void PushImageData(ImageData* pData) { mpInputBuffer->PushImageData(pData); }
+  void PushImuData(ImuData* data) const { mpInputBuffer->PushImuData(data); }
+  void PushImageData(ImageData* pData) const { mpInputBuffer->PushImageData(pData); }
 
   void initialize(const Eigen::Vector3d& w, const Eigen::Vector3d& a,
-                  const int nImuData, const bool bEnableAlignment);
+                  int nImuData, bool bEnableAlignment);
 
   void MonoVIO();
 

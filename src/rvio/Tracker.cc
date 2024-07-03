@@ -125,9 +125,9 @@ void Tracker::UndistortAndNormalize(const int N, T1& src, T2& dst) {
 
 // 显示特征点匹配结果
 void Tracker::DisplayTrack(const cv::Mat& imIn,
-                           std::vector<cv::Point2f>& vPoints1,
-                           std::vector<cv::Point2f>& vPoints2,
-                           std::vector<unsigned char>& vInlierFlag,
+                           const std::vector<cv::Point2f>& vPoints1,
+                           const std::vector<cv::Point2f>& vPoints2,
+                           const std::vector<unsigned char>& vInlierFlag,
                            cv_bridge::CvImage& imOut) {
   // 准备显示的图像
   imOut.header = std_msgs::Header();
