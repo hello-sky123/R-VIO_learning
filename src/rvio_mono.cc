@@ -33,7 +33,7 @@ class ImageGrabber {
  public:
   explicit ImageGrabber(RVIO::System* pSys): mpSys(pSys) {}
 
-  void GrabImage(const sensor_msgs::ImageConstPtr& msg);
+  void GrabImage(const sensor_msgs::ImageConstPtr& msg) const;
 
   RVIO::System* mpSys;
 };
@@ -42,12 +42,12 @@ class ImuGrabber {
  public:
   explicit ImuGrabber(RVIO::System* pSys): mpSys(pSys) {}
 
-  void GrabImu(const sensor_msgs::ImuConstPtr& msg);
+  void GrabImu(const sensor_msgs::ImuConstPtr& msg) const;
 
   RVIO::System* mpSys;
 };
 
-void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg) {
+void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg) const {
   static int lastseq = -1;
   // 检查图像消息是否有丢失
   if ((int)msg->header.seq != lastseq + 1 && lastseq != -1)
@@ -73,7 +73,7 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg) {
   mpSys->MonoVIO(); // 单目视觉惯性里程计入口函数
 }
 
-void ImuGrabber::GrabImu(const sensor_msgs::ImuConstPtr& msg) {
+void ImuGrabber::GrabImu(const sensor_msgs::ImuConstPtr& msg) const {
   static int lastseq = -1;
   // 检查IMU消息是否有丢失
   if ((int)msg->header.seq != lastseq + 1 && lastseq != -1)
