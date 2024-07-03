@@ -66,7 +66,7 @@ class Tracker {
 
   // Feature measurements for update
   // Each list corresponds to a feature with its size the tracking length.
-  std::vector<std::list<cv::Point2f> > mvlFeatMeasForUpdate;
+  std::vector<std::list<cv::Point2f>> mvlFeatMeasForUpdate;
 
  private:
   int mnMaxFeatsPerImage; // 最大特征点数
